@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, abort
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 app = Flask(__name__)
@@ -13,7 +13,7 @@ class Todo(db.Model):
     SNo = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.String(500), nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
+    date_created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self) -> str:
         return f"{self.SNo}-{self.title}"
@@ -31,39 +31,27 @@ def hello_world():
         db.session.add(todo)
         db.session.commit()
     allTodo = Todo.query.all()
-        #print(allTodo)
     return render_template("index.html",allTodo=allTodo)
-    # return "<p>Hello Flas!</p>"
-
-@app.route("/show")
-def products():
-    allTodo = Todo.query.all()
-    print(allTodo)
-    return "<p>Products</p>"
 
 @app.route("/update/<int:SNo>", methods=['GET','POST'])
 def update(SNo):
+    todo = Todo.query.filter_by(SNo=SNo).first()
+    if todo is None:
+        abort(404)
     if request.method == 'POST':
-        title = request.form["title"]
-        description = request.form["desc"]
-        todo = Todo.query.filter_by(SNo=SNo).first()
-        todo.title = title
-        todo.description = description
-        db.session.add(todo)
+        todo.title = request.form["title"]
+        todo.description = request.form["desc"]
         db.session.commit()
         return redirect("/")
-    todo = Todo.query.filter_by(SNo=SNo).first()
-    # db.session.delete(Todo)
-    # db.session.commit()
-    # print(Todo)
     return render_template("update.html",todo=todo)
 
 @app.route("/delete/<int:SNo>")
 def delete(SNo):
     todo = Todo.query.filter_by(SNo=SNo).first()
+    if todo is None:
+        abort(404)
     db.session.delete(todo)
     db.session.commit()
-    print(todo)
     return redirect("/")
            
 if __name__ == "__main__":
